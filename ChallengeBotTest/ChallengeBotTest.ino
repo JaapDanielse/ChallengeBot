@@ -18,7 +18,7 @@
 
 
   V1.0   JnD & JpD 21-10-2017
-         Original version based on  
+         Original version based on  GPO Robot Test (adapted for different hardware, Servo and slow PWM determination).
 
 */
 
@@ -97,12 +97,6 @@ void setup()
   }
   else
   {
-     Serial.print(F("S1: "));
-     Serial.print(speedSensorReadCount(1));
-     Serial.print(F(" S2: "));
-     Serial.print(speedSensorReadCount(2));
-     Serial.println();
-     
      Serial.println(F("Yes - Checking Speedsensor 1"));
      if (speedSensorReadCount(1) > 10)
        Serial.println(F("Speedsensor 1 - OK"));
@@ -206,9 +200,9 @@ void setup()
    motorControl(1, STOP, 0);
 
    Serial.print(F("Motor 1 - Min. PWM value:"));
-   Serial.print( Motor1PWM + 25 );
+   Serial.print( Motor1PWM + 15 );
    Serial.print(F(" Speed:"));
-   Serial.print( speedSensorReadSpeed(1));
+   Serial.print( Motor1Speed );
    Serial.println(F(" mm/s"));
 
    delay(1000);
@@ -238,7 +232,7 @@ void setup()
    motorControl(2, STOP, 0);
 
    Serial.print(F("Motor 2 - min. PWM value:"));
-   Serial.print( Motor2PWM + 25 );
+   Serial.print( Motor2PWM + 15 );
    Serial.print(F(" Speed:"));
    Serial.print( Motor2Speed );
    Serial.println(F(" mm/s"));
@@ -248,9 +242,9 @@ void setup()
 
    Serial.print(F("Please write down as SLOW pwm value: "));
    if( Motor1PWM > Motor2PWM )
-     Serial.println( Motor1PWM + 25 );
+     Serial.println( Motor1PWM + 15 );
    else
-     Serial.println( Motor2PWM + 25 );
+     Serial.println( Motor2PWM + 15 );
 
   Serial.println(F(""));
   Serial.println(F("Testing Distance Sensor"));
