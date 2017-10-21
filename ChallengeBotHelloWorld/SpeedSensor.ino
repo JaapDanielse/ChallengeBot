@@ -66,9 +66,8 @@ ISR(PCINT0_vect)  // handle interrupt for D8 to D13
     if(speedSensor1State) // only react on becomming high (start of sensor slot)
     {
       speedSensor1Count += speedSensor1Direction; // count the slots and direction +1/-1
-      speedSensor1Speed = (float(1000.0/(millis()-speedSensor1Time))*10); // calculate speed in mm/s (one slot =  10.5 mm. movement)
       speedSensor1Time = millis(); // setup for next measurement
-      CallBack( 1, speedSensor1Speed, speedSensor2Speed ); // do callback
+      CallBack( 1 ); // do callback
     }
   }
 }
@@ -83,9 +82,8 @@ ISR(PCINT2_vect) // handle interrupt for D0 to D7
     if(speedSensor2State) // only react on becomming high (start of sensor slot)
     {
       speedSensor2Count += speedSensor2Direction; // count the slots and direction +1/-1
-      speedSensor2Speed = (float(1000.0/(millis()-speedSensor2Time))*10); // calculate speed in mm/s (one slot =  10.5 mm. movement)
       speedSensor2Time = millis(); // setup for next measurement
-      CallBack( 2, speedSensor1Speed, speedSensor2Speed ); // do callback
+      CallBack( 2 ); // do callback
     }
   } 
 }

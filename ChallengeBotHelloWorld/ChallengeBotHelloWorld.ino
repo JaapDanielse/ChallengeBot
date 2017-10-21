@@ -14,10 +14,11 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-
+  V1.1   JpD 21-10-2017
+         Removed speed constraint.
+         
   V1.0   JnD & JpD 20-10-2017
-         Original version based on  
+         Original version based on GPO RobotHelloWorld (adapted for different hardware, servo added)
 
 */
 
@@ -30,32 +31,31 @@
  #define FORWARD  1 //
  #define REVERSE  2 //
 
-// Speed and Motor PWM Slow
- #define SLOW 450 // Speed in mm/sec for slow drive
- #define SLOWPWM 80 // PWM value for slow drive (experiment with setting for your robot)
-
-// Speed and Motor PWM Fast
- #define FAST 800 // Speed in mm/sec for fast drive
+// Motor Speed and Motor PWM
+ #define SLOW 1 // Slow drive indicator
+ #define FAST 2 // Fast drive indicator
+ #define SLOWPWM 90 // PWM value for slow drive ( Take value from ChallengeBotTest )
  #define FASTPWM 255 // PWM value for fast drive ( max pwm )
 
  #define MAXLOOP 4 // maximum time back and forth
 
 //-----------------------------------------------------------------------------------------
 // Typedefs
- typedef void (*ISRCallBack)( byte, int, int ); // callback declaration
+ typedef void (*ISRCallBack)( byte ); // callback declaration
 
 
 //-----------------------------------------------------------------------------------------
 void setup() 
 {
   Serial.begin(115200); // set up Serial library at 115200 bps
-  Serial.println("Robot Hello World!");
+  Serial.println("ChallengeBot Hello World!");
  
   speedSensorInit( driveSpeedSensorCallback );
   distanceSensorInit();
   motorControlInit();
   ServoInit(120, 325, 590); // pwm value for 0 degrees min 100, 90 degrees and 180 degrees (max 700)
                             // allows to have the 90 degree position straight ahead. 
+                            // ( Take value from ChallengeBotTest )
 
 }
 
@@ -75,8 +75,6 @@ void loop()
   int i=0;
 
 
-//  while(1); 
- 
   switch ( action )
   {
     case 1:

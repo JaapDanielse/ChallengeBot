@@ -40,6 +40,7 @@
 #define DRIVING  3 //
 #define TURNING  4 //
 
+#define STALLTIME 45 //
 
 // drive global variables
 byte driveStatus = STOPPED;  
@@ -54,10 +55,6 @@ int driveStallTime = 0; // time
 boolean driveStraight(byte direction, int distance, int driveSpeed, byte obstacleDistWarning )
 { // drive in a straight line for a given distance with a given speed. Watch for obstacles closer then given distance
   
-  driveStallTime = (1000/(float (driveSpeed/10)))*1.5; //caclulate the time in ms required for one slot at this speed times 1.5
-
-  driveMotorSpeed = driveSpeed; // storeDriveSpeed
-
   if (driveSpeed == SLOW) // determine PWM value
     driveMotorPwm = SLOWPWM; 
   else  
@@ -83,7 +80,7 @@ boolean driveStraight(byte direction, int distance, int driveSpeed, byte obstacl
   while( driveDistanceDone() < distance ) // until distance covered
   {
     Serial.print("");
-    delay(driveStallTime/3); // wait a bit
+    delay(STALLTIME/3); // wait a bit
     driveCatchStall(); // catch stall 
     if ( distanceSensorCheckObstacle(obstacleDistWarning) ) // check for obstacles
     { // an obstacle detected within range 
@@ -107,12 +104,9 @@ void driveTurn(int turnDegrees)
 
   distance = int (1.21 * float(abs(turnDegrees))); // distance for one wheel: 1.21 mm per degree 
 
-  driveStallTime = (1000/(float (driveSpeed/10)))*1.5; //caclulate the time in ms required for one slot at this speed times 1.5
-
   driveSensor1Count = 0; // clear speed sensor interrupt Count
   driveSensor2Count = 0; // clear speed sensor interrupt Count
 
-  driveMotorSpeed = SLOW; // set slow speed
   driveMotorPwm = SLOWPWM; // set slow pwm
   driveStatus = TURNING; // we are turning
 
@@ -134,7 +128,7 @@ void driveTurn(int turnDegrees)
   while( driveSensor1Count * 10 < distance ) // do while stop not complete
   { 
     Serial.print("");
-    delay(driveStallTime/3); // wait a bit
+    delay(STALLTIME/3); // wait a bit
     driveCatchStall(); // catch stall
   }
   driveStatus = IDLING; // no longer turning
@@ -178,7 +172,7 @@ int driveDistanceDone()
 
 
 //-----------------------------------------------------------------------------------------------
-void driveSpeedSensorCallback(byte SensorId, int Sensor1Speed, int Sensor2Speed )
+void driveSpeedSensorCallback(byte SensorId )
 { // called on interrupt of the speed sensors. Switches motors on or off depending on speed and other wheel interrupt count
   // extends interrupt service routine: keep it short!
 
@@ -204,7 +198,7 @@ void driveSpeedSensorCallback(byte SensorId, int Sensor1Speed, int Sensor2Speed 
   
   if (driveStatus == DRIVING || driveStatus == TURNING)
   { 
-    if ( Sensor1Speed < driveMotorSpeed && abs(driveSensor1Count) <= abs(driveSensor2Count) )
+    if ( abs(driveSensor1Count) <= abs(driveSensor2Count) )
     { // we are on speed or slow and not ahead of motor 2
       motorSpeed(1, driveMotorPwm); // too slow: engine on
   #ifdef DEBUG
@@ -219,7 +213,7 @@ void driveSpeedSensorCallback(byte SensorId, int Sensor1Speed, int Sensor2Speed 
   #endif  
     }
 
-    if ( Sensor2Speed < driveMotorSpeed && abs(driveSensor2Count) <= abs(driveSensor1Count) )
+    if ( abs(driveSensor2Count) <= abs(driveSensor1Count) )
     { // we are on speed or slow and not ahead of motor 1
       motorSpeed(2, driveMotorPwm); // store the initial drive speed
   #ifdef DEBUG
@@ -245,7 +239,7 @@ void driveSpeedSensorCallback(byte SensorId, int Sensor1Speed, int Sensor2Speed 
 void driveCatchStall()
 { // called from driveStraight and driveTurn to catch a stalling engine start it again.
   
-    if ( speedSensorReadTime(1) > driveStallTime ) // have we stalled?
+    if ( speedSensorReadTime(1) > STALLTIME ) // have we stalled?
     {
       motorSpeed(1, FASTPWM); // yes: start moving again
 #ifdef DEBUG
@@ -253,7 +247,7 @@ void driveCatchStall()
 #endif  
     }
     
-    if ( speedSensorReadTime(2) > driveStallTime ) // have we stalled?
+    if ( speedSensorReadTime(2) > STALLTIME ) // have we stalled?
     {
       motorSpeed(2, FASTPWM); // yes: start moving again
 #ifdef DEBUG
