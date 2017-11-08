@@ -7,6 +7,7 @@
   and determines the pin causing the interrupt.
   
 */
+
 //-----------------------------------------------------------------------------------------------
 // speedSensor pin declarations
 
@@ -38,17 +39,16 @@
 void speedSensorInit( ISRCallBack CallBackPointer )
 {
   CallBack = CallBackPointer;
-  if(CallBack == NULL) Serial.println ("CallBackPointer NULL error!");
+  if(CallBack == NULL) Serial.println ("CallBackPointer NULL error!"); // show callback pointer problem
   
   pinMode(SPEEDSENSOR1, INPUT); // Speedsensor 1 pin as input
   pinMode(SPEEDSENSOR2, INPUT); // Speedsensor 2 pin as input
 
-  // setup Pin Change Interrupt for A and B port 
-  PCIFR = (1<<PCIF0) | (1<<PCIF2); // A and B port Intterupt Clear
-  PCICR = (1<<PCIE0) | (1<<PCIE2); // Pin change Interrupt - Enable port A and B
-
-  PCMSK0 = (1<<PCINT4); // enable interrupt D12
-  PCMSK2 = (1<<PCINT18); // enable interrupt D2
+  // setup Pin Change Interrupt 
+  PCICR  = (1<<PCIE0) | (1<<PCIE2); // Pin change Interrupt - Enable PCIE0 (PCINT0-7) port B
+                                    // Pin change Interrupt - Enable PCIE2 (PCINT16-23) port D
+  PCMSK0 = (1<<PCINT4);  // enable interrupt PCINT4  port B (D12)
+  PCMSK2 = (1<<PCINT18); // enable interrupt PCINT18 port D (D2)
 
 
   speedSensor1State = digitalRead(SPEEDSENSOR1); // get initial value
@@ -57,37 +57,34 @@ void speedSensorInit( ISRCallBack CallBackPointer )
 } 
 
 //-----------------------------------------------------------------------------------------------
-ISR(PCINT0_vect)  // handle interrupt for D8 to D13
+ISR(PCINT0_vect)  // handle interrupt for port B (D8 to D13)
 { // Speed sensor interrupt service routine (keep it short!)
-  
+
+  PCIFR  = (1<<PCIF0); // clear interrupt flag port B 
+ 
   if (digitalRead(SPEEDSENSOR1) != speedSensor1State) // sensor 1 changed?
   {
     speedSensor1State = !speedSensor1State; // store current value (HIGH/LOW)
-    if(speedSensor1State) // only react on becomming high (start of sensor slot)
-    {
-      speedSensor1Count += speedSensor1Direction; // count the slots and direction +1/-1
-      speedSensor1Time = millis(); // setup for next measurement
-      CallBack( 1 ); // do callback
-    }
+    speedSensor1Count++; // count the slots and direction +1/-1
+    speedSensor1Time = millis(); // setup for next measurement
+    CallBack( 1 ); // do callback
   }
 }
 
 //-----------------------------------------------------------------------------------------------
-ISR(PCINT2_vect) // handle interrupt for D0 to D7
+ISR(PCINT2_vect) // handle interrupt for port D (D0 to D7)
 { // Speed sensor interrupt service routine (keep it short!)
+  
+  PCIFR  = (1<<PCIF2); // clear interrupt flag port D 
 
-  if (digitalRead(SPEEDSENSOR2) != speedSensor2State) // sensor 2 changed?
+  if (digitalRead(SPEEDSENSOR2) != speedSensor2State) // sensor 1 changed?
   {
     speedSensor2State = !speedSensor2State; // store current value (HIGH/LOW)
-    if(speedSensor2State) // only react on becomming high (start of sensor slot)
-    {
-      speedSensor2Count += speedSensor2Direction; // count the slots and direction +1/-1
-      speedSensor2Time = millis(); // setup for next measurement
-      CallBack( 2 ); // do callback
-    }
-  } 
+    speedSensor2Count++; // count the slots and direction +1/-1
+    speedSensor2Time = millis(); // setup for next measurement
+    CallBack( 2 ); // do callback
+  }
 }
-
 
 //-----------------------------------------------------------------------------------------------
 void speedSensorSetDirection( byte sensorId, byte sensorDirection )
@@ -124,16 +121,14 @@ byte speedSensorGetDirection( byte sensorId )
     else
       return REVERSE;
   }
-
 }
 
 //-----------------------------------------------------------------------------------------------
 int speedSensorClear()
 { // clear speedsensor counts
-  
-    speedSensor1Count = 0;
-    speedSensor2Count = 0;
 
+  speedSensor1Count = 0;
+  speedSensor2Count = 0;
 }
 
 //-----------------------------------------------------------------------------------------------

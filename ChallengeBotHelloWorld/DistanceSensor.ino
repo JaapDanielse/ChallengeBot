@@ -1,6 +1,5 @@
 /*
- 
- DistanceSensor Module
+  DistanceSensor Module
  
  Ultrasonic HC-SR04 distance sensor
  Uses a trigger pulse to send a ultrasone burst.
@@ -10,28 +9,29 @@
 
  After the measurement we need some time for echo's to decay.
  If a next measurement is requested within 10 ms. the previous value is returned
- 
- 
+  
 */
- 
+
+//-----------------------------------------------------------------------------------------------
+// Hardware declaration
+
 #define DISTANCESENSECHO  6 // distance sensor echo pin
 #define DISTANCESENSTRIG  7 // distance sensor trigger pin
  
+//-----------------------------------------------------------------------------------------------
+// Inititialsiation 
+
 void distanceSensorInit() 
 {
   pinMode(DISTANCESENSTRIG, OUTPUT); // set trigger pin as output
   pinMode(DISTANCESENSECHO, INPUT);  // set echo pin as input
 
   digitalWrite(DISTANCESENSTRIG, LOW); // set trigger pin low (trigger is high)  
-
-  for(int i=0; i < 10; i++) // warm up? the distance sensor
-  {
-    distanceSensorRead();
-    delay(20);
-  }
 }
  
 //-----------------------------------------------------------------------------------------------
+// Read sensor
+
 int distanceSensorRead() 
 {
   #define ECHODELAY 30 //
@@ -54,6 +54,8 @@ int distanceSensorRead()
 }
 
 //-----------------------------------------------------------------------------------------------
+// Obstacle warding
+
 boolean distanceSensorCheckObstacle(int obstacleDistWarning)
 {
    int distanceMeasured;
@@ -62,7 +64,7 @@ boolean distanceSensorCheckObstacle(int obstacleDistWarning)
    if( distanceMeasured > obstacleDistWarning || distanceMeasured == 0 )
      return false;
 
-   Serial.print( "Obstacle: ");
+   Serial.print( "Obstacle: "); // show obstacle detected
    Serial.print( distanceMeasured );
    Serial.println(" cm.");
    return true;

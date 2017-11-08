@@ -6,89 +6,83 @@
  The speed sensor wheels have 20 slots and 20 spokes.
  Since all changes in the sensor pins result in an interrupt 
  there will be 40 interrupts for a full rotation of a wheel
- but since the slots have a different size than the spokes
- we use only the interupts for the start of a slot (HIGH).
  
  Te wheel circumference is 210 mm. 
- One interrupt is therfore equal to 210/20 = 10.5 mm. movement.
+ One interrupt is therefore equal to 210/20 = 5.25 mm. movement.
  
  When turning the distance between the wheel centers is 140 mm.
- If only one wheel runs a 90 deg. turn equals:
-(2*pi*140)/4 = 220 (rounded) = one full wheel turn. (/4 = 90 deg turn)
 
- If both wheels are running the center of the circle will be in the middle.
- The radius will then be 70 mm. So (2*pi*70)/4 = 110 mm. = 10,5 (approx) interrupts.
- The other wheel will be turning the other way also 10,5 interrupts.
- A difference of 210 interrupts therfore means a 90 deg. direction change.
- I guess this also applies when the robot does a curve.
+ If only one wheel runs a 180 deg. turn equals:
+ (2*pi*140)/2 = 440 (rounded)  (the /2 is half a turn = 180 deg)
 
- Calculating from degrees to distance of one wheel (both wheels turning oposite)
- 90 deg = 110 mm. So 110/90 = 1.22 mm / degree (minimum turn will be 10 deg.)
-  
- The forward motion is calulated using the average interrupt count of the motors
- times 10.5 mm.
- 
- 
+ If both wheels are running in opposite direction the center of the circle will be in the middle.
+ and each wheel has to travel half the distance (220 mm)
+
+ If a wheel has to travel 220 mm then it will have 220/5.25 = 42 (rounded) interrupts 
+ For a two wheel turn this means a factor of 180/42 = 4.3 degrees per interrupt applies.
+
+ Some how this falls a bit short (dont know why) so i added a correcion factor
+
 */
 
-
-
 //-----------------------------------------------------------------------------------------------
+// defines
+
 // drive status value
 #define IDLING   0 // 
 #define STOPPED  1 // 
 #define DRIVING  3 //
 #define TURNING  4 //
 
-#define STALLTIME 45 //
+// maximum stall time
+#define STALLTIME 20 // maximum allowed time between interrupt, if exeeded stall is caught
+
+// distance and turn calculation factors
+#define MMPERINTERRUPT 5.25 // number of millimeters per interrupt
+#define DEGPERINTERRUPT 4.30 // degrees to interrupt factor
+#define TURNCORRECTION -0.20 // correction on the degrees to interrupt factor
 
 // drive global variables
 byte driveStatus = STOPPED;  
-int driveMotorSpeed = 0; // Speed in cm/sec 
 int driveMotorPwm = 0; // pwm value 
+int driveInterruptsToDo = 0; // total number of interrupts to handle
 int driveSensor1Count = 0; // speed sensor 1 interrupt counter for action
 int driveSensor2Count = 0; // speed sensor 2 interrupt counter for action
-int driveSensorDiff = 0; // stop error for next action
-int driveStallTime = 0; // time
 
 //-----------------------------------------------------------------------------------------------
 boolean driveStraight(byte direction, int distance, int driveSpeed, byte obstacleDistWarning )
 { // drive in a straight line for a given distance with a given speed. Watch for obstacles closer then given distance
   
+  driveInterruptsToDo = int( float(distance)/MMPERINTERRUPT ); // calculate number of indexwheel interrupts
+
   if (driveSpeed == SLOW) // determine PWM value
-    driveMotorPwm = SLOWPWM; 
+    driveMotorPwm = SLOWPWM; // set to slow pwm
   else  
-    driveMotorPwm = FASTPWM;
+    driveMotorPwm = FASTPWM; // set to fast pwm
 
   driveSensor2Count = 0; // clear speed sensor interrupt Count
   driveSensor1Count = 0; // clear speed sensor interrupt Count
-
-  // if we stopped at an (unintended) angle correct for this.
-  if ( driveSensorDiff >= 0 ) // we should have driven straight = 0; positive = 1 too fast negative = 2 too fast
-    driveSensor1Count = abs(driveSensorDiff);
-  else
-    driveSensor2Count = abs(driveSensorDiff);
 
   driveStatus = DRIVING; // we are driving
 
   speedSensorSetDirection(1, direction); // set direction for the sensors
   speedSensorSetDirection(2, direction); // set direction for the sensors
 
-  motorControl(1, direction, FASTPWM); // output to motor
-  motorControl(2, direction, FASTPWM); // output to motor
+  motorControl(1, direction, FASTPWM); // output to motor (start with fast pwm)
+  motorControl(2, direction, FASTPWM); // output to motor (start with fast pwm)
   
-  while( driveDistanceDone() < distance ) // until distance covered
+  while( driveSensor1Count<driveInterruptsToDo && driveSensor2Count<driveInterruptsToDo ) // do while not complete  
   {
-    Serial.print("");
+    Serial.print(""); // needed to solve arduino stack bug
     delay(STALLTIME/3); // wait a bit
     driveCatchStall(); // catch stall 
     if ( distanceSensorCheckObstacle(obstacleDistWarning) ) // check for obstacles
-    { // an obstacle detected within range 
+    { // obstacle detected within range 
       driveStatus = IDLING; // no longer driving
       return false; // signal obstacle detected
     }
   }
-
+  
   driveStatus = IDLING; // no longer driving
   return true; // normal exit
   
@@ -100,9 +94,8 @@ void driveTurn(int turnDegrees)
 { // make a turn for a (approximate) given number of degrees
 
   int driveSpeed = SLOW;
-  int distance; 
 
-  distance = int (1.21 * float(abs(turnDegrees))); // distance for one wheel: 1.21 mm per degree 
+  driveInterruptsToDo = int( float( abs(turnDegrees)/(DEGPERINTERRUPT + TURNCORRECTION)));
 
   driveSensor1Count = 0; // clear speed sensor interrupt Count
   driveSensor2Count = 0; // clear speed sensor interrupt Count
@@ -125,12 +118,13 @@ void driveTurn(int turnDegrees)
     motorControl(2, FORWARD, FASTPWM); // output to motor
   }
     
-  while( driveSensor1Count * 10 < distance ) // do while stop not complete
+  while( driveSensor1Count<driveInterruptsToDo && driveSensor2Count<driveInterruptsToDo ) // do while not complete
   { 
-    Serial.print("");
+    Serial.print(""); // needed to solve arduino stack bug
     delay(STALLTIME/3); // wait a bit
     driveCatchStall(); // catch stall
   }
+
   driveStatus = IDLING; // no longer turning
   
   return false;
@@ -141,8 +135,9 @@ void driveTurn(int turnDegrees)
 //-----------------------------------------------------------------------------------------------
 void driveStop()
 { // stop straight drive or turn by shortly reversing motors
+  // one of the wheels has completed its distance
   
-  if ( speedSensorGetDirection(1)==FORWARD ) // check direction and revers
+  if ( speedSensorGetDirection(1)==FORWARD ) // check direction and reverse
     motorControl(1, REVERSE, SLOWPWM); // output to motor
   else
     motorControl(1, FORWARD, SLOWPWM); // output to motor
@@ -164,74 +159,66 @@ void driveStop()
 
 //-----------------------------------------------------------------------------------------------
 int driveDistanceDone()
-{ // returns the distacne driven 
-  
-  return ((( driveSensor1Count + driveSensor2Count)/2) * 10) ;
-
+{ // returns the distance driven 
+  return (int (float( driveSensor1Count + driveSensor2Count) / 2.0) * MMPERINTERRUPT) ;
 }
 
 
 //-----------------------------------------------------------------------------------------------
 void driveSpeedSensorCallback(byte SensorId )
 { // called on interrupt of the speed sensors. Switches motors on or off depending on speed and other wheel interrupt count
-  // extends interrupt service routine: keep it short!
+  // extends interrupt service routine: KEEP IT SHORT!
 
   if (SensorId == 1) 
     driveSensor1Count++; // keep track of this action
   else // SensorId == 2
     driveSensor2Count++; // keep track of this action
 
-  driveSensorDiff = abs(driveSensor1Count) - abs(driveSensor2Count); // store difference
-
   #ifdef DEBUG
-    Serial.print("S1 ");
-    Serial.print(Sensor1Speed);
-    Serial.print(" S2 ");
-    Serial.print(Sensor2Speed);
-    Serial.print(" C1 ");
-    Serial.print(driveSensor1Count);
-    Serial.print(" C2 ");
+    Serial.print("Sid:"); // print in debug 
+    Serial.print(SensorId); // sensor id
+    Serial.print(" S1C: "); // Sensor 1 count
+    Serial.print(driveSensor1Count); 
+    Serial.print(" S2C: "); // Sensor 2 count
     Serial.print(driveSensor2Count);
-    Serial.print(" DN ");
-    Serial.print(driveDistanceDone());
   #endif  
   
   if (driveStatus == DRIVING || driveStatus == TURNING)
   { 
-    if ( abs(driveSensor1Count) <= abs(driveSensor2Count) )
+    if ( driveSensor1Count <= driveSensor2Count )
     { // we are on speed or slow and not ahead of motor 2
       motorSpeed(1, driveMotorPwm); // too slow: engine on
-  #ifdef DEBUG
-      Serial.print(" 1-on");
-  #endif  
-     }
+      #ifdef DEBUG
+        Serial.print(" M1Srt!"); // motor 1 start
+      #endif  
+    }
     else
     { // we are too fast or ahead of motor 2
       motorSpeed(1, 0); // too fast: engine off
-  #ifdef DEBUG
-      Serial.print(" 1-off");
-  #endif  
+      #ifdef DEBUG
+        Serial.print(" M1Stp!"); // motor 1 stop
+      #endif  
     }
 
-    if ( abs(driveSensor2Count) <= abs(driveSensor1Count) )
+    if ( driveSensor2Count <= driveSensor1Count )
     { // we are on speed or slow and not ahead of motor 1
       motorSpeed(2, driveMotorPwm); // store the initial drive speed
-  #ifdef DEBUG
-      Serial.print(" 2-on");
-  #endif  
+      #ifdef DEBUG
+        Serial.print(" M2Srt!"); // motor 2 start
+      #endif  
     }
     else
     { // we are too fast or ahead of motor 1
       motorSpeed(2, 0); // store the initial drive speed
-  #ifdef DEBUG
-      Serial.print(" 2-off");
-  #endif  
+      #ifdef DEBUG
+        Serial.print(" M2Stp!"); // motor 2 stop
+      #endif  
     }
   }
-  #ifdef DEBUG
-   Serial.println();
-  #endif  
 
+  #ifdef DEBUG
+    Serial.println(""); 
+  #endif  
 }
 
 
@@ -243,7 +230,7 @@ void driveCatchStall()
     {
       motorSpeed(1, FASTPWM); // yes: start moving again
 #ifdef DEBUG
-     Serial.print(" stall 1 ");
+     Serial.print(" stall 1 "); // show stall in debug
 #endif  
     }
     
@@ -251,7 +238,7 @@ void driveCatchStall()
     {
       motorSpeed(2, FASTPWM); // yes: start moving again
 #ifdef DEBUG
-      Serial.print(" stall 2 ");
+      Serial.print(" stall 2 "); // show stall in debug
 #endif  
     }
 }
