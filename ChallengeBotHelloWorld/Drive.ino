@@ -40,7 +40,6 @@
 // distance and turn calculation factors
 #define MMPERINTERRUPT 5.25 // number of millimeters per interrupt
 #define DEGPERINTERRUPT 4.30 // degrees to interrupt factor
-#define TURNCORRECTION -0.20 // correction on the degrees to interrupt factor
 
 // drive global variables
 byte driveStatus = STOPPED;  
@@ -53,7 +52,14 @@ int driveSensor2Count = 0; // speed sensor 2 interrupt counter for action
 boolean driveStraight(byte direction, int distance, int driveSpeed, byte obstacleDistWarning )
 { // drive in a straight line for a given distance with a given speed. Watch for obstacles closer then given distance
   
-  driveInterruptsToDo = int( float(distance)/MMPERINTERRUPT ); // calculate number of indexwheel interrupts
+  driveInterruptsToDo = int( float(distance*10)/MMPERINTERRUPT ); // calculate number of indexwheel interrupts
+
+  #ifdef DEBUG
+    Serial.print("Drive: "); 
+    Serial.print(distance); 
+    Serial.print(" cm. I-cnt: "); 
+    Serial.println(driveInterruptsToDo); 
+  #endif  
 
   if (driveSpeed == SLOW) // determine PWM value
     driveMotorPwm = SLOWPWM; // set to slow pwm
@@ -71,7 +77,7 @@ boolean driveStraight(byte direction, int distance, int driveSpeed, byte obstacl
   motorControl(1, direction, FASTPWM); // output to motor (start with fast pwm)
   motorControl(2, direction, FASTPWM); // output to motor (start with fast pwm)
   
-  while( driveSensor1Count<driveInterruptsToDo && driveSensor2Count<driveInterruptsToDo ) // do while not complete  
+  while( driveSensor1Count < driveInterruptsToDo && driveSensor2Count < driveInterruptsToDo ) // do while not complete  
   {
     Serial.print(""); // needed to solve arduino stack bug
     delay(STALLTIME/3); // wait a bit
@@ -97,6 +103,13 @@ void driveTurn(int turnDegrees)
 
   driveInterruptsToDo = int( float( abs(turnDegrees)/(DEGPERINTERRUPT + TURNCORRECTION)));
 
+  #ifdef DEBUG
+    Serial.print("Turn: "); 
+    Serial.print(turnDegrees); 
+    Serial.print(" deg. I-cnt: "); 
+    Serial.println(driveInterruptsToDo); 
+  #endif  
+
   driveSensor1Count = 0; // clear speed sensor interrupt Count
   driveSensor2Count = 0; // clear speed sensor interrupt Count
 
@@ -118,7 +131,7 @@ void driveTurn(int turnDegrees)
     motorControl(2, FORWARD, FASTPWM); // output to motor
   }
     
-  while( driveSensor1Count<driveInterruptsToDo && driveSensor2Count<driveInterruptsToDo ) // do while not complete
+  while( driveSensor1Count < driveInterruptsToDo && driveSensor2Count < driveInterruptsToDo ) // do while not complete
   { 
     Serial.print(""); // needed to solve arduino stack bug
     delay(STALLTIME/3); // wait a bit
@@ -160,7 +173,7 @@ void driveStop()
 //-----------------------------------------------------------------------------------------------
 int driveDistanceDone()
 { // returns the distance driven 
-  return (int (float( driveSensor1Count + driveSensor2Count) / 2.0) * MMPERINTERRUPT) ;
+  return ((int (float( driveSensor1Count + driveSensor2Count) / 2.0) * MMPERINTERRUPT)/10) ;
 }
 
 
@@ -175,11 +188,11 @@ void driveSpeedSensorCallback(byte SensorId )
     driveSensor2Count++; // keep track of this action
 
   #ifdef DEBUG
-    Serial.print("Sid:"); // print in debug 
+    Serial.print("S:"); // print in debug 
     Serial.print(SensorId); // sensor id
-    Serial.print(" S1C: "); // Sensor 1 count
+    Serial.print(" 1C: "); // Sensor 1 count
     Serial.print(driveSensor1Count); 
-    Serial.print(" S2C: "); // Sensor 2 count
+    Serial.print(" 2C: "); // Sensor 2 count
     Serial.print(driveSensor2Count);
   #endif  
   
@@ -189,14 +202,14 @@ void driveSpeedSensorCallback(byte SensorId )
     { // we are on speed or slow and not ahead of motor 2
       motorSpeed(1, driveMotorPwm); // too slow: engine on
       #ifdef DEBUG
-        Serial.print(" M1Srt!"); // motor 1 start
+        Serial.print(" M1+"); // motor 1 start
       #endif  
     }
     else
     { // we are too fast or ahead of motor 2
       motorSpeed(1, 0); // too fast: engine off
       #ifdef DEBUG
-        Serial.print(" M1Stp!"); // motor 1 stop
+        Serial.print(" M1-"); // motor 1 stop
       #endif  
     }
 
@@ -204,14 +217,14 @@ void driveSpeedSensorCallback(byte SensorId )
     { // we are on speed or slow and not ahead of motor 1
       motorSpeed(2, driveMotorPwm); // store the initial drive speed
       #ifdef DEBUG
-        Serial.print(" M2Srt!"); // motor 2 start
+        Serial.print(" M2+"); // motor 2 start
       #endif  
     }
     else
     { // we are too fast or ahead of motor 1
       motorSpeed(2, 0); // store the initial drive speed
       #ifdef DEBUG
-        Serial.print(" M2Stp!"); // motor 2 stop
+        Serial.print(" M2-"); // motor 2 stop
       #endif  
     }
   }
@@ -230,7 +243,7 @@ void driveCatchStall()
     {
       motorSpeed(1, FASTPWM); // yes: start moving again
 #ifdef DEBUG
-     Serial.print(" stall 1 "); // show stall in debug
+     Serial.print(" Stall 1 "); // show stall in debug
 #endif  
     }
     
@@ -238,7 +251,7 @@ void driveCatchStall()
     {
       motorSpeed(2, FASTPWM); // yes: start moving again
 #ifdef DEBUG
-      Serial.print(" stall 2 "); // show stall in debug
+      Serial.print(" Stall 2 "); // show stall in debug
 #endif  
     }
 }

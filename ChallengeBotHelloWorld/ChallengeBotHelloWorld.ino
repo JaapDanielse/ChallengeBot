@@ -14,6 +14,9 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
+  v1.3  JpD 15-11-2017
+          Drive control is cm / distance done in cm. Debug messages added/changed.
          
   V1.2   JpD & JnD 8-11-2017
          Interrupt on both spoke and slot index wheel, Improved turn and distance calculation, code cleanup and comments
@@ -37,8 +40,11 @@
 #define REVERSE  2  // Motor direction reverse
 #define SLOW 1      // Slow drive indicator
 #define FAST 2      // Fast drive indicator
-#define SLOWPWM 100 // PWM value for slow drive ( Take value from ChallengeBotTest )
+#define SLOWPWM 100 // PWM value for slow drive ( [CHANGE] Take value from ChallengeBotTest )
 #define FASTPWM 255 // PWM value for fast drive ( max pwm )
+
+#define TURNCORRECTION -0.25 // correction on the degrees to interrupt factor for more accurate turn angles
+                             // [CHANGE]depends on motor friction and battery level
 
 // Behaviour defines
 #define MAXLOOP 4 // maximum time back and forth
@@ -60,9 +66,9 @@ void setup()
   motorControlInit();
   ServoInit(115, 320, 580); // pwm value for 0 degrees min 100, 90 degrees and 180 degrees (max 700)
                             // allows to have the 90 degree position straight ahead. 
-                            // Take value from ChallengeBotTest
+                            // [CHANGE] Take value from ChallengeBotTest
 
-  while(!distanceSensorCheckObstacle(3)) // start when signalled
+  while(!distanceSensorCheckObstacle(5)) // start when signalled by hand!
   {
     delay(100); // wait 1/10 second
   }
@@ -92,7 +98,7 @@ void loop()
       Serial.println( currentAction );
       lastAction = currentAction;
       speedSensorClear(); // clear counts
-      setDistance = 700; // set distance for drive in mm.
+      setDistance = 70; // set distance for drive in mm.
       currentAction = 2; // set next action
       break; // exit action
     }
@@ -104,11 +110,11 @@ void loop()
       lastAction = currentAction; // remember where we are
       if ( !driveStraight( FORWARD, setDistance ,FAST, 20 ) ) // drive: Fast , detect obstacles < 20cm )
       { // onstacle detected
-        setDistance = setDistance - driveDistanceDone() + 300; // calculate the rest of the distance to go.
+        setDistance = setDistance - driveDistanceDone() + 30; // calculate the rest of the distance to go.
         currentAction=3; // react to obstacle in action 3
         break; // exit action
       } 
-      setDistance = 300; // set distance for next action
+      setDistance = 30; // set distance for next action
       currentAction = 3; // set next action
       break; // exit action
     }
@@ -137,12 +143,12 @@ void loop()
       delay(500); // wait half a second 
 
       ServoSweep( SweepArray ); // look around
-      if (SweepAnalysis( SweepArray, 50, 3, &ObstacleDirection, &ObstacleDistance))
+      if (SweepAnalysis( SweepArray, 25, 3, &ObstacleDirection, &ObstacleDistance))
       { // small object within 50 cm.
         Serial.print ("Target: ");
         Serial.print (90 + ObstacleDirection);
         Serial.print (" degrees, distance:");
-        Serial.println (ObstacleDistance/10);
+        Serial.println (ObstacleDistance);
         delay(500); // wait half a secons
         ServoWrite(90); // look straight ahead
 
@@ -180,7 +186,11 @@ void loop()
     }
   } // end switch
 
-  if (loopCount >= MAXLOOP) while(1); // when done hold here.
+  if (loopCount >= MAXLOOP)
+  {
+    Serial.println("Done");
+    while(1); // when done hold here.
+  }
 }
 
 // end module
