@@ -178,7 +178,7 @@ boolean SweepAnalysis( int SweepArray[], int MaxDistance, int MinWidth, int *Dir
     delay (500); // wait half a second
 
     *Direction = 90 - (180 - ClosestDirection); // write direction
-    *Distance = ClosestDistance * 10; // write distance
+    *Distance = ClosestDistance; // write distance
 
     return true; // target found 
   }
